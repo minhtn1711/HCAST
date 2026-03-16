@@ -20,7 +20,7 @@ from birds_get_tree_target_2 import *
 import json
 import torch.nn.functional as F
 
-def _unpack_batch_eval(batch, nb_classes, use_attr=False):
+def _unpack_batch_eval(batch, nb_classes, use_attr=getattr(args, "use_attr", False)):
     if len(nb_classes) == 3:
         if use_attr:
             images, segments, target, family_targets, mf_targets, attrs = batch
@@ -28,7 +28,6 @@ def _unpack_batch_eval(batch, nb_classes, use_attr=False):
         else:
             images, segments, target, family_targets, mf_targets = batch
             return images, segments, target, family_targets, mf_targets, None
-
     elif len(nb_classes) == 2:
         if use_attr:
             images, segments, target, family_targets, attrs = batch
@@ -36,6 +35,8 @@ def _unpack_batch_eval(batch, nb_classes, use_attr=False):
         else:
             images, segments, target, family_targets = batch
             return images, segments, target, family_targets, None, None
+    else:
+        raise ValueError(f"Unsupported nb_classes: {nb_classes}")
 
 @torch.no_grad()
 def evaluate_detail(data_loader, model, device, filename, nb_classes, dataset='AIR-SUPERPIXEL', breeds_sort=None, use_attr=False):
