@@ -20,8 +20,25 @@ from birds_get_tree_target_2 import *
 import json
 import torch.nn.functional as F
 
+def _unpack_batch_eval(batch, nb_classes, use_attr=False):
+    if len(nb_classes) == 3:
+        if use_attr:
+            images, segments, target, family_targets, mf_targets, attrs = batch
+            return images, segments, target, family_targets, mf_targets, attrs
+        else:
+            images, segments, target, family_targets, mf_targets = batch
+            return images, segments, target, family_targets, mf_targets, None
+
+    elif len(nb_classes) == 2:
+        if use_attr:
+            images, segments, target, family_targets, attrs = batch
+            return images, segments, target, family_targets, None, attrs
+        else:
+            images, segments, target, family_targets = batch
+            return images, segments, target, family_targets, None, None
+
 @torch.no_grad()
-def evaluate_detail(data_loader, model, device, filename, nb_classes, dataset='AIR-SUPERPIXEL', breeds_sort=None):
+def evaluate_detail(data_loader, model, device, filename, nb_classes, dataset='AIR-SUPERPIXEL', breeds_sort=None, use_attr=False):
     criterion = torch.nn.CrossEntropyLoss()
 
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -44,16 +61,22 @@ def evaluate_detail(data_loader, model, device, filename, nb_classes, dataset='A
     
     if len(nb_classes) == 3:
         results.append(['m_gt', 'm_pred', 'f_gt', 'f_pred', 's_gt', 's_pred'])
-        for images, segments, target, family_targets, mf_targets in metric_logger.log_every(data_loader, 1, header):
+        for batch in metric_logger.log_every(data_loader, 1, header):
+            images, segments, target, family_targets, mf_targets, attrs = _unpack_batch_eval(
+                batch, nb_classes, use_attr=('ATTR' in dataset or 'attr' in dataset.lower())
+            )
+
             images = images.to(device, non_blocking=True)
             segments = segments.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
             family_targets = family_targets.to(device, non_blocking=True)
             mf_targets = mf_targets.to(device, non_blocking=True)
+            if attrs is not None:
+                attrs = attrs.to(device, non_blocking=True)
 
             # compute output
             with torch.cuda.amp.autocast():
-                output, family_out, manu_out = model(images, segments)
+                output, family_out, manu_out = model(images, segments, attrs)
                 loss_species = criterion(output, target)
                 loss_family = criterion(family_out, family_targets)
                 loss_manufacturer = criterion(manu_out, mf_targets)
@@ -116,7 +139,11 @@ def evaluate_detail(data_loader, model, device, filename, nb_classes, dataset='A
     elif len(nb_classes) == 2:
         trees = json.load(open('data/'+breeds_sort + '_tree.json'))
         results.append(['f_gt', 'f_pred', 's_gt', 's_pred'])
-        for images, segments, target, family_targets in metric_logger.log_every(data_loader, 1, header):
+        for batch in metric_logger.log_every(data_loader, 1, header):
+
+            images, segments, target, family_targets, mf_targets, attrs = _unpack_batch_eval(
+                batch, nb_classes, use_attr=use_attr
+            )
             images = images.to(device, non_blocking=True)
             segments = segments.to(device, non_blocking=True)
             target = target.to(device, non_blocking=True)
@@ -124,7 +151,7 @@ def evaluate_detail(data_loader, model, device, filename, nb_classes, dataset='A
 
             # compute output
             with torch.cuda.amp.autocast():
-                output, family_out = model(images, segments)
+                output, family_out = model(images, segments, attrs)
                 loss_species = criterion(output, target)
                 loss_family = criterion(family_out, family_targets)
 

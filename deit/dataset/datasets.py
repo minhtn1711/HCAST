@@ -62,6 +62,9 @@ def build_dataset(is_train, args):
             is_hier=True,
             random_seed=args.random_seed,
             train=is_train,
+            use_attr=args.use_attr,
+            attr_ids=getattr(args, "attr_ids", None),
+            cub_root=args.cub_root if args.cub_root else os.path.dirname(args.data_path),
         )
         nb_classes = [200, 38, 13]
 
@@ -78,6 +81,9 @@ def build_dataset(is_train, args):
             compactness=10.0,
             blur_ops=None,
             scale_factor=1.0,
+            use_attr=args.use_attr,
+            attr_ids=getattr(args, "attr_ids", None),
+            cub_root=args.cub_root if args.cub_root else os.path.dirname(args.data_path),
         )
         nb_classes = [200, 38, 13]
 

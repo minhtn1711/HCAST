@@ -29,6 +29,8 @@ from augment import new_data_aug_generator
 
 import cast_models.cast_deit_hier 
 
+from cub_attr_utils import load_topk_attr_ids
+
 import utils
 
 
@@ -38,6 +40,13 @@ def get_args_parser():
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--bce-loss', action='store_true')
     parser.add_argument('--unscale-lr', action='store_true')
+
+    parser.add_argument('--use-attr', action='store_true')
+    parser.add_argument('--attr-topk', type=int, default=100)
+    parser.add_argument('--attr-ranking-file', type=str, default='')
+    parser.add_argument('--attr-ranking-sheet', type=str, default='color_attributes')
+    parser.add_argument('--attr-fusion-dim', type=int, default=256)
+    parser.add_argument('--cub-root', type=str, default='')
 
     # Model parameters
     parser.add_argument('--model', default='cast_small', type=str, metavar='MODEL',
@@ -207,6 +216,18 @@ def get_args_parser():
 def main(args):
     print(args)
 
+    if args.use_attr:
+        args.attr_ids = load_topk_attr_ids(
+            ranking_file=args.attr_ranking_file,
+            topk=args.attr_topk,
+            sheet_name=args.attr_ranking_sheet
+        )
+        args.attr_dim = len(args.attr_ids)
+        print("Using attr ids:", args.attr_ids[:10], "total =", len(args.attr_ids))
+    else:
+        args.attr_ids = None
+        args.attr_dim = 0
+
     if args.distributed:
         utils.init_distributed_mode(args)
 
@@ -288,7 +309,10 @@ def main(args):
         drop_path_rate=args.drop_path,
         drop_block_rate=None,
         img_size=args.input_size,
-        nb_classes=args.nb_classes
+        nb_classes=args.nb_classes,
+        use_attr=args.use_attr,
+        attr_dim=args.attr_dim,
+        attr_fusion_dim=args.attr_fusion_dim,
     )
     print(model)
                     
@@ -448,7 +472,7 @@ def main(args):
         if 'accuracy' in checkpoint:
             print('Checkpoint Accuracy:', checkpoint['accuracy'])
         test_stats = evaluate_detail(data_loader_val, model, device, os.path.join(args.output_dir, args.filename), 
-                                     args.nb_classes, args.data_set, args.breeds_sort)
+                                     args.nb_classes, args.data_set, args.breeds_sort, use_attr=args.use_attr)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         return
 

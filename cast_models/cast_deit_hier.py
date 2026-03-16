@@ -32,10 +32,21 @@ __all__ = [
 class CAST(VisionTransformer):
     def __init__(self, nb_classes, *args, **kwargs):
         depths = kwargs['depth']
+
+        # NEW: lưu config
+        self.use_attr = use_attr
+        self.attr_dim = attr_dim
+        self.attr_fusion_dim = attr_fusion_dim
+
         # These entries do not exist in timm.VisionTransformer.
         num_clusters = kwargs.pop('num_clusters', [64, 32, 16, 8])
         kwargs['depth'] = sum(kwargs['depth'])
         super().__init__(**kwargs)
+
+        # NEW: lưu config
+        self.use_attr = use_attr
+        self.attr_dim = attr_dim
+        self.attr_fusion_dim = attr_fusion_dim
 
         # Do not tackle dist_token.
         assert self.dist_token is None, 'dist_token is not None.'
@@ -62,6 +73,26 @@ class CAST(VisionTransformer):
             self.manufacturer_head.apply(self._init_weights)
         
         self.family_head.apply(self._init_weights)
+
+        if self.use_attr:
+            self.attr_proj = nn.Sequential(
+                nn.Linear(self.attr_dim, self.attr_fusion_dim),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(self.attr_fusion_dim, self.attr_fusion_dim),
+                nn.ReLU(),
+            )
+
+            # species head của repo đang dùng:
+            # - len(nb_classes)==3  -> out2
+            # - len(nb_classes)==2  -> out3
+            self.species_fusion = nn.Sequential(
+                nn.Linear(self.embed_dim + self.attr_fusion_dim, self.embed_dim),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+            )
+
+            self.attr_proj.apply(self._init_weights)
 
         cumsum_depth = [0]
         for d in depths:
@@ -200,18 +231,24 @@ class CAST(VisionTransformer):
 
         return intermediates
 
-    def forward(self, x, y):
-        intermediates = self.forward_features(x, y)  
+    def forward(self, x, y, attrs=None):
+        intermediates = self.forward_features(x, y)
+
+        if self.use_attr and attrs is not None:
+            attr_feat = self.attr_proj(attrs)
+            species_feat = torch.cat([intermediates['out2'], attr_feat], dim=-1)
+            species_feat = self.species_fusion(species_feat)
+        else:
+            species_feat = intermediates['out2']
+
         if self.num_manufacturer:
-            manu_out = self.manufacturer_head(intermediates['out4']) 
+            manu_out = self.manufacturer_head(intermediates['out4'])
             family_out = self.family_head(intermediates['out3'])
-            out = self.head(intermediates['out2']) 
+            out = self.head(species_feat)
             return out, family_out, manu_out
-    
         else:
             family_out = self.family_head(intermediates['out4'])
-            out = self.head(intermediates['out3']) 
-
+            out = self.head(species_feat)
             return out, family_out
 
 
