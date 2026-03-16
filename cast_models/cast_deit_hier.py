@@ -33,10 +33,9 @@ class CAST(VisionTransformer):
     def __init__(self, nb_classes, *args, **kwargs):
         depths = kwargs['depth']
 
-        # NEW: lưu config
-        self.use_attr = use_attr
-        self.attr_dim = attr_dim
-        self.attr_fusion_dim = attr_fusion_dim
+        use_attr = kwargs.pop('use_attr', False)
+        attr_dim = kwargs.pop('attr_dim', 0)
+        attr_fusion_dim = kwargs.pop('attr_fusion_dim', 256)
 
         # These entries do not exist in timm.VisionTransformer.
         num_clusters = kwargs.pop('num_clusters', [64, 32, 16, 8])
