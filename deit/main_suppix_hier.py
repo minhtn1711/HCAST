@@ -552,7 +552,7 @@ def main(args):
         model,
         device,
         os.path.join(args.output_dir, args.filename),
-        nb_classes,
+        args.nb_classes,
         dataset=args.data_set,
         breeds_sort=args.breeds_sort,
         use_attr=args.use_attr
