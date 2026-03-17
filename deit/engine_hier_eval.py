@@ -64,7 +64,7 @@ def evaluate_detail(data_loader, model, device, filename, nb_classes, dataset='A
         results.append(['m_gt', 'm_pred', 'f_gt', 'f_pred', 's_gt', 's_pred'])
         for batch in metric_logger.log_every(data_loader, 1, header):
             images, segments, target, family_targets, mf_targets, attrs = _unpack_batch_eval(
-                batch, nb_classes, use_attr=('ATTR' in dataset or 'attr' in dataset.lower())
+                batch, nb_classes, use_attr=use_attr
             )
 
             images = images.to(device, non_blocking=True)
