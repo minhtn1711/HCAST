@@ -20,7 +20,7 @@ from birds_get_tree_target_2 import *
 import json
 import torch.nn.functional as F
 
-def _unpack_batch_eval(batch, nb_classes, use_attr=getattr(args, "use_attr", False)):
+def _unpack_batch_eval(batch, nb_classes, use_attr=False):
     if len(nb_classes) == 3:
         if use_attr:
             images, segments, target, family_targets, mf_targets, attrs = batch
